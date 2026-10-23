@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admin Panel</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js"></script>
+  <style>
+    /* CROP MODAL */
+    .crop-bg {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.8);
+      justify-content: center;
+      align-items: center;
+      z-index: 1100;
+      padding: 15px;
+    }
+
+    .crop-box {
+      width: 100%;
+      max-width: 460px;
+      padding: 18px;
+      text-align: center;
+      background: rgba(14, 47, 68, 0.97);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 20px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    }
+
+    .crop-box h3 {
+      color: white;
+      margin-bottom: 12px;
+    }
+
+    .crop-area {
+      width: 100%;
+      height: 320px;
+      background: #000;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .crop-area img {
+      display: block;
+      max-width: 100%;
+    }
+
+    .crop-ratios,
+    .crop-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+
+    .crop-box button {
+      padding: 9px 16px;
+      border: none;
+      border-radius: 10px;
+      background: #194156;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .crop-box button.active {
+      background: #62caff;
+      color: #06131c;
+    }
+
+    .crop-box button.primary {
+      background: hwb(337 4% 41%);
+    }
+
+    .crop-box button:hover {
+      transform: none;
+      filter: brightness(1.15);
+      background-color: inherit;
+    }
+
+    #coverPreviewWrap {
+      display: none;
+      margin-top: 10px;
+    }
+
+    #coverPreview {
+      width: 120px;
+      height: 120px;
+      object-fit: cover;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+
+    .edit-crop {
+      display: block;
+      margin: 8px auto 0;
+      padding: 6px 14px;
+      border: none;
+      border-radius: 8px;
+      background: #194156;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    body {
+      background-color: black;
+      margin-top: 30px;
+    }
+
+    #card {
+      background: rgba(14, 47, 68, 0.45);
+      backdrop-filter: blur(100px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 20px;
+      height: 90%;
+      width: 90%;
+      margin: 10px auto;
+      padding-top: 10px;
+      padding-left: 10px;
+      box-shadow:
+        0 8px 32px rgba(0, 0, 0, 0.4),
+        inset 0 1px 1px rgba(255, 255, 255, 0.15);
+      text-align: center;
+    }
+
+    h2 {
+      font-weight: bold;
+      text-align: center;
+      color: white;
+      font-style: italic;
+    }
+
+    .panel,
+    .panel1 {
+      font-style: oblique;
+      color: white;
+      font-weight: bold;
+    }
+
+    .placeholder {
+      border-radius: 4px;
+      border: none;
+      font-weight: bold;
+      height: 30px;
+      width: 280px;
+      background-color: #194156ff;
+      color: silver;
+    }
+
+    #option1,
+    #option {
+      font-weight: bold;
+      height: 30px;
+      width: 280px;
+      border-radius: 4px;
+      background-color: #194156ff;
+      color: silver;
+    }
+
+    .file-input {
+      height: 30px;
+      width: 280px;
+      border-radius: 4px;
+      background-color: #194156ff;
+      color: silver;
+      padding: 4px;
+    }
+
+    .upload {
+      background-color: hwb(337 4% 41%);
+      border: none;
+      height: 50px;
+      width: 100px;
+      border-radius: 15px;
+      font-size: 20px;
+      font-weight: bold;
+      color: white;
+      font-style: italic;
+      cursor: pointer;
+    }
+
+    .upload:disabled {
+      opacity: 0.6;
+      cursor: wait;
+    }
+
+    button:hover {
+      background-color: #37a022ba;
+      transition: 0.2s;
+      transform: scale(1.2);
+    }
+
+    /* POPUP BACKGROUND */
+    .popup-bg {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(5px);
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+
+    /* POPUP BOX */
+    .popup {
+      width: 280px;
+      padding: 25px;
+      text-align: center;
+      background: rgba(14, 47, 68, 0.95);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 20px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+      transform: scale(0.5);
+      opacity: 0;
+    }
+
+    .popup.show {
+      animation: popupShow 0.4s ease forwards;
+    }
+
+    @keyframes popupShow {
+      0%   { transform: scale(0.5); opacity: 0; }
+      70%  { transform: scale(1.08); opacity: 1; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    /* SUCCESS ICON */
+    .success-icon {
+      width: 60px;
+      height: 60px;
+      margin: auto;
+      border-radius: 50%;
+      background: #37a022;
+      color: white;
+      font-size: 38px;
+      line-height: 60px;
+      animation: iconPop 0.5s ease;
+    }
+
+    @keyframes iconPop {
+      0%   { transform: scale(0); }
+      70%  { transform: scale(1.2); }
+      100% { transform: scale(1); }
+    }
+
+    /* POPUP TEXT */
+    .popup h3 {
+      color: white;
+      font-size: 22px;
+      margin: 15px 0 8px;
+    }
+
+    .popup p {
+      color: silver;
+      font-size: 15px;
+      overflow-wrap: anywhere;
+    }
+
+    /* POPUP BUTTON */
+    .popup button {
+      margin-top: 15px;
+      padding: 10px 25px;
+      border: none;
+      border-radius: 12px;
+      background: hwb(337 4% 41%);
+      color: white;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="card">
+    <h2>Add New Song</h2>
+    <br>
+
+    <!-- SONG TITLE -->
+    <label class="panel" for="title">Song title:</label>
+    <br>
+    <input id="title" class="placeholder" type="text" placeholder="Enter Song Name">
+    <br><br>
+
+    <!-- ARTIST -->
+    <label class="panel" for="artist">Artist:</label>
+    <br>
+    <input id="artist" class="placeholder" type="text" placeholder="Enter artist name">
+    <br><br>
+
+    <!-- ALBUM -->
+    <label class="panel" for="album">Album:</label>
+    <br>
+    <input id="album" class="placeholder" type="text" placeholder="Enter Album name">
+    <br><br>
+
+    <!-- LANGUAGE -->
+    <label class="panel1" for="option1">Language:</label>
+    <br>
+    <select id="option1">
+      <option value="">Language</option>
+      <option value="Telugu">Telugu</option>
+      <option value="Hindi">Hindi</option>
+      <option value="English">English</option>
+      <option value="Tamil">Tamil</option>
+      <option value="Malayalam">Malayalam</option>
+      <option value="Kannada">Kannada</option>
+    </select>
+    <br><br>
+
+    <!-- GENRE -->
+    <label class="panel" for="option">Genre:</label>
+    <br>
+    <select id="option">
+      <option value="">Genre</option>
+      <option value="Pop">Pop</option>
+      <option value="Hip-Hop">Hip-Hop</option>
+      <option value="Rock">Rock</option>
+      <option value="Classical">Classical</option>
+      <option value="Mass">Mass</option>
+      <option value="Folk">Folk</option>
+      <option value="Jazz">Jazz</option>
+      <option value="Weeknd">Weeknd</option>
+    </select>
+    <br><br>
+
+    <!-- DURATION -->
+    <label class="panel" for="duration">Duration:</label>
+    <br>
+    <input id="duration" class="placeholder" type="text" placeholder="eg. 3:40">
+    <br><br>
+
+    <!-- AUDIO FILE -->
+    <label class="panel" for="audioFile">Audio file:(mp3)</label>
+    <br>
+    <input id="audioFile" class="file-input" type="file" accept=".mp3,audio/mpeg">
+    <br><br>
+
+    <!-- COVER IMAGE -->
+    <label class="panel" for="coverFile">Cover Image:</label>
+    <br>
+    <input id="coverFile" class="file-input" type="file" accept="image/jpeg,image/png,image/webp">
+
+    <div id="coverPreviewWrap">
+      <img id="coverPreview" alt="Cropped cover preview">
+      <button type="button" class="edit-crop" id="editCropBtn">✂ Edit crop</button>
+    </div>
+    <br><br>
+
+    <!-- UPLOAD BUTTON -->
+    <center>
+      <button id="uploadBtn" class="upload" type="button">Upload</button>
+    </center>
+    <br>
+  </div>
+
+  <!-- POPUP -->
+  <div class="popup-bg" id="popupBg">
+    <div class="popup" id="popup">
+      <div class="success-icon" id="popupIcon">✓</div>
+      <h3 id="popupTitle">Ready to Upload!</h3>
+      <p id="popupMessage">Your song details are correct.</p>
+      <button type="button" onclick="closePopup()">OK</button>
+    </div>
+  </div>
+
+  <!-- CROP MODAL -->
+  <div class="crop-bg" id="cropBg">
+    <div class="crop-box">
+      <h3>Crop Cover Image</h3>
+      <div class="crop-area">
+        <img id="cropImage" alt="Image to crop">
+      </div>
+      <div class="crop-ratios">
+        <button type="button" data-ratio="1" class="active">1:1</button>
+        <button type="button" data-ratio="1.7778">16:9</button>
+        <button type="button" data-ratio="1.3333">4:3</button>
+        <button type="button" data-ratio="NaN">Free</button>
+      </div>
+      <div class="crop-actions">
+        <button type="button" id="cropRotate">⟳ Rotate</button>
+        <button type="button" id="cropCancel">Cancel</button>
+        <button type="button" id="cropApply" class="primary">Crop &amp; Use</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ===== Supabase project configuration =====
+    const SUPABASE_URL = "https://ljmqyigdesrftfphiglw.supabase.co";
+    const SUPABASE_KEY = "sb_publishable_AMFZFIODLrc7YIF0SUAh0w_ZlQuONWn";
+    const BUCKET_NAME = "music vibe2"; // must match your Supabase bucket name exactly
+
+    const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    const uploadButton = document.getElementById("uploadBtn");
+    uploadButton.addEventListener("click", uploadSong);
+
+    // ===== COVER CROP =====
+    const coverInput = document.getElementById("coverFile");
+    const cropBg = document.getElementById("cropBg");
+    const cropImage = document.getElementById("cropImage");
+    const previewWrap = document.getElementById("coverPreviewWrap");
+    const previewImg = document.getElementById("coverPreview");
+
+    let cropper = null;
+    let originalCoverUrl = null; // object URL of the full selected image
+    let croppedBlob = null;      // final cropped image used for upload
+
+    function openCropper() {
+      cropBg.style.display = "flex";
+      cropImage.src = originalCoverUrl;
+
+      if (cropper) cropper.destroy();
+
+      cropper = new Cropper(cropImage, {
+        aspectRatio: 1,
+        viewMode: 1,
+        autoCropArea: 1,
+        background: false
+      });
+
+      document.querySelectorAll(".crop-ratios button").forEach(function (b) {
+        b.classList.toggle("active", b.dataset.ratio === "1");
+      });
+    }
+
+    function closeCropper() {
+      cropBg.style.display = "none";
+      if (cropper) {
+        cropper.destroy();
+        cropper = null;
+      }
+    }
+
+    function clearCover() {
+      croppedBlob = null;
+      coverInput.value = "";
+      previewWrap.style.display = "none";
+      previewImg.removeAttribute("src");
+      if (originalCoverUrl) {
+        URL.revokeObjectURL(originalCoverUrl);
+        originalCoverUrl = null;
+      }
+    }
+
+    coverInput.addEventListener("change", function () {
+      const file = coverInput.files[0];
+      croppedBlob = null;
+      previewWrap.style.display = "none";
+
+      if (!file) return;
+
+      const allowed = ["image/jpeg", "image/png", "image/webp"];
+      if (!allowed.includes(file.type)) {
+        clearCover();
+        showPopup("!", "Invalid File", "Please select a JPG, PNG or WEBP image.");
+        return;
+      }
+
+      if (originalCoverUrl) URL.revokeObjectURL(originalCoverUrl);
+      originalCoverUrl = URL.createObjectURL(file);
+      openCropper();
+    });
+
+    document.querySelectorAll(".crop-ratios button").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        if (!cropper) return;
+        document.querySelectorAll(".crop-ratios button").forEach(function (b) {
+          b.classList.remove("active");
+        });
+        btn.classList.add("active");
+        cropper.setAspectRatio(parseFloat(btn.dataset.ratio));
+      });
+    });
+
+    document.getElementById("cropRotate").addEventListener("click", function () {
+      if (cropper) cropper.rotate(90);
+    });
+
+    document.getElementById("cropCancel").addEventListener("click", function () {
+      closeCropper();
+      // If there was no earlier crop, drop the selection entirely
+      if (!croppedBlob) clearCover();
+    });
+
+    document.getElementById("cropApply").addEventListener("click", function () {
+      if (!cropper) return;
+
+      const canvas = cropper.getCroppedCanvas({
+        maxWidth: 1200,
+        maxHeight: 1200,
+        imageSmoothingQuality: "high"
+      });
+
+      if (!canvas) {
+        showPopup("!", "Crop Failed", "Could not crop the image. Try another one.");
+        return;
+      }
+
+      canvas.toBlob(function (blob) {
+        if (!blob) {
+          showPopup("!", "Crop Failed", "Could not create the cropped image.");
+          return;
+        }
+        croppedBlob = blob;
+        previewImg.src = URL.createObjectURL(blob);
+        previewWrap.style.display = "block";
+        closeCropper();
+      }, "image/jpeg", 0.92);
+    });
+
+    document.getElementById("editCropBtn").addEventListener("click", function () {
+      if (originalCoverUrl) openCropper();
+    });
+
+    function safeFileName(value) {
+      return value
+        .normalize("NFKD")
+        .replace(/[^a-zA-Z0-9_-]/g, "_")
+        .slice(0, 70) || "song";
+    }
+
+    async function uploadSong() {
+      const title    = document.getElementById("title").value.trim();
+      const artist   = document.getElementById("artist").value.trim();
+      const album    = document.getElementById("album").value.trim();
+      const duration = document.getElementById("duration").value.trim();
+      const language = document.getElementById("option1").value;
+      const genre    = document.getElementById("option").value;
+      const audioFile = document.getElementById("audioFile").files[0];
+      const coverFile = croppedBlob; // cropped image from the crop tool
+
+      // ----- VALIDATION -----
+      if (!title)    return showPopup("!", "Missing Info", "Please enter the song title.");
+      if (!artist)   return showPopup("!", "Missing Info", "Please enter the artist name.");
+      if (!album)    return showPopup("!", "Missing Info", "Please enter the album name.");
+      if (!language) return showPopup("!", "Missing Info", "Please select a language.");
+      if (!genre)    return showPopup("!", "Missing Info", "Please select a genre.");
+      if (!duration) return showPopup("!", "Missing Info", "Please enter the duration.");
+      if (!audioFile) return showPopup("!", "Missing Info", "Please select an MP3 file.");
+      if (!coverFile) return showPopup("!", "Missing Info", "Please select a cover image.");
+
+      if (!audioFile.name.toLowerCase().endsWith(".mp3")) {
+        return showPopup("!", "Invalid File", "Please select an MP3 file only.");
+      }
+
+      if (audioFile.size > 50 * 1024 * 1024) {
+        return showPopup("!", "File Too Large", "MP3 must be smaller than 50 MB.");
+      }
+      if (coverFile.size > 10 * 1024 * 1024) {
+        return showPopup("!", "File Too Large", "Cover image must be smaller than 10 MB.");
+      }
+
+      uploadButton.disabled = true;
+      uploadButton.innerText = "Uploading";
+      showPopup("⏳", "Uploading...", "Please wait while your song is being uploaded.");
+
+      let audioPath = null;
+      let coverPath = null;
+
+      try {
+        const fileId = Date.now() + "_" + Math.random().toString(36).slice(2, 8);
+        const name = safeFileName(title);
+
+        audioPath = `songs/${fileId}_${name}.mp3`;
+        coverPath = `covers/${fileId}_${name}.jpg`; // cropped covers are saved as JPEG
+
+        // Upload MP3
+        const { error: audioError } = await db.storage
+          .from(BUCKET_NAME)
+          .upload(audioPath, audioFile, {
+            cacheControl: "3600",
+            contentType: "audio/mpeg",
+            upsert: false
+          });
+        if (audioError) throw new Error("Audio upload failed: " + audioError.message);
+
+        // Upload cover image
+        const { error: coverError } = await db.storage
+          .from(BUCKET_NAME)
+          .upload(coverPath, coverFile, {
+            cacheControl: "3600",
+            contentType: "image/jpeg",
+            upsert: false
+          });
+        if (coverError) throw new Error("Cover upload failed: " + coverError.message);
+
+        // Public URLs
+        const { data: audioData } = db.storage.from(BUCKET_NAME).getPublicUrl(audioPath);
+        const { data: coverData } = db.storage.from(BUCKET_NAME).getPublicUrl(coverPath);
+
+        // Save to songs table
+        const { data: savedSongs, error: insertError } = await db
+          .from("songs")
+          .insert({
+            title: title,
+            artist: artist,
+            album: album,
+            language: language,
+            genre: genre,
+            duration: duration,
+            audio_url: audioData.publicUrl,
+            cover_url: coverData.publicUrl
+          })
+          .select();
+
+        if (insertError) throw new Error("Database save failed: " + insertError.message);
+        if (!savedSongs || savedSongs.length === 0) {
+          throw new Error("No song record was returned. Check the songs table permissions.");
+        }
+
+        console.log("Saved song:", savedSongs[0]);
+
+        showPopup("✓", "Song Uploaded!", title + " was added successfully in " + language + ".");
+
+        // Reset form
+        document.querySelectorAll(".placeholder").forEach(i => i.value = "");
+        document.getElementById("option1").value = "";
+        document.getElementById("option").value = "";
+        document.getElementById("audioFile").value = "";
+        clearCover();
+
+      } catch (error) {
+        console.error("Upload error:", error);
+        showPopup("!", "Upload Failed", error.message || "Something went wrong.");
+
+        // Remove any files already uploaded if a later step failed
+        const pathsToRemove = [audioPath, coverPath].filter(Boolean);
+        if (pathsToRemove.length) {
+          const { error: cleanupError } = await db.storage
+            .from(BUCKET_NAME)
+            .remove(pathsToRemove);
+          if (cleanupError) console.warn("File cleanup failed:", cleanupError.message);
+        }
+
+      } finally {
+        uploadButton.disabled = false;
+        uploadButton.innerText = "Upload";
+      }
+    }
+
+    // ===== POPUP =====
+    function showPopup(icon, title, message) {
+      const popupBg = document.getElementById("popupBg");
+      const popup = document.getElementById("popup");
+      const popupIcon = document.getElementById("popupIcon");
+
+      popupIcon.innerText = icon;
+      document.getElementById("popupTitle").innerText = title;
+      document.getElementById("popupMessage").innerText = message;
+
+      if (icon === "✓") {
+        popupIcon.style.background = "#37a022";
+      } else if (icon === "!") {
+        popupIcon.style.background = "#d62828";
+      } else {
+        popupIcon.style.background = "#e09f00";
+      }
+
+      popupBg.style.display = "flex";
+      popup.classList.remove("show");
+      void popup.offsetWidth;
+      popup.classList.add("show");
+    }
+
+    function closePopup() {
+      const popupBg = document.getElementById("popupBg");
+      document.getElementById("popup").classList.remove("show");
+      setTimeout(function () {
+        popupBg.style.display = "none";
+      }, 300);
+    }
+  </script>
+
+</body>
+</html>
